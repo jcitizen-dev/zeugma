@@ -141,55 +141,53 @@ export const DURING_REFERENCE = [
   ...DURING_REMINDERS,
 ];
 
+// Wording follows the household guide ("If something goes wrong").
 export const EMERGENCIES = [
   {
     id: 'door',
-    title: 'Door hissing or leaking',
-    lead: 'Stop the session and call the installer.',
-    steps: ['Press Stop → Yes on the tablet.', 'Call the installer.'],
+    title: 'Hiss or leak from the door',
+    lead: 'The seal is damaged. Stop the session immediately and call the installer.',
+    steps: ['Press Stop → Yes on the tablet.', 'Call the installer.', "Don't use the chamber until it's repaired."],
     call: true,
   },
   {
     id: 'o2',
     title: 'Chamber O₂ at 23% or higher',
-    lead: 'Get out.',
+    lead: 'Get out and call the installer.',
     steps: ['End the session: Stop → Yes.', 'Leave the chamber once it has decompressed.', 'Call the installer.'],
     call: true,
   },
   {
     id: 'true',
-    title: 'True emergency',
-    lead: 'Stop, then open the valve as needed.',
-    steps: ['Press Stop → Yes on the tablet.', 'Open the manual release valve as needed to bring the pressure down.'],
+    title: 'True emergency (fire, medical episode)',
+    lead: 'Hit Stop or the emergency button, then open the manual valve as much as needed to get out.',
+    steps: ['Press Stop, or the emergency button inside.', 'Open the manual release valve as much as needed to get out.'],
   },
   {
     id: 'power',
     title: 'Power outage: manual decompression',
-    lead: 'Decompress with the manual release valve.',
+    lead: "The system won't remember the session. Decompress with the manual valve.",
     steps: [
-      'Open the manual release valve a half-turn.',
+      'Open the manual release valve a half-turn, until it hisses.',
       'Wait for the hiss to fade.',
       'Repeat: half-turn, wait.',
       'Watch the pressure gauge until it reaches 0.',
-      'From 140 kPa this takes about 20 minutes.',
+      "From 140 kPa this takes about 20 minutes. Don't open it wide.",
     ],
   },
   {
     id: 'estop',
-    title: 'Emergency stop reset',
-    lead: 'After the emergency stop has been pressed:',
-    steps: ['Twist the emergency stop button to release it.', 'Press Alarm Reset on the tablet.'],
+    title: 'Emergency stop was pressed',
+    lead: 'It decompresses automatically. Before the next session:',
+    steps: ['Twist the emergency stop button to release it.', 'Tap Alarm Reset on the tablet.'],
   },
 ];
 
 export const END_WAYS = [
-  { title: 'Protocol finishes', text: 'The session ends on its own when the protocol reaches 0 kPa.' },
-  { title: 'Stop → Yes', text: 'Press Stop on the tablet and confirm Yes. The chamber decompresses automatically.' },
-  {
-    title: 'Manual release valve',
-    text: 'Half-turns, wait for the hiss to fade, repeat. Use it during a power outage, or at ~15 kPa to speed up the end.',
-  },
-  { title: 'Emergency stop', text: 'Red emergency stop button. Afterwards: twist to release, then Alarm Reset.' },
+  { title: 'Stop on the outside tablet', text: 'Stop → Yes. It decompresses slowly and safely, and can’t be paused or resumed.' },
+  { title: 'Stop on the inside tablet', text: 'Same as outside: Stop → Yes.' },
+  { title: 'Inside emergency button', text: 'Decompresses automatically. Afterwards: twist to release, then Alarm Reset.' },
+  { title: 'Manual valve', text: 'Power outage or emergency only. Half-turns, wait for the hiss to fade, repeat.' },
 ];
 
 export const UNITS = [

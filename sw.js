@@ -1,5 +1,5 @@
 // Network-first with a cached fallback: always fresh when online, fully usable offline.
-const CACHE = 'zeugma-v2';
+const CACHE = 'zeugma-v3';
 const ASSETS = [
   './',
   'index.html',
@@ -13,6 +13,7 @@ const ASSETS = [
   'js/maint.js',
   'js/data.js',
   'js/tablet.js',
+  'js/guide.js',
   'js/views/home.js',
   'js/views/session.js',
   'js/views/log.js',
@@ -20,6 +21,7 @@ const ASSETS = [
   'js/views/safety.js',
   'js/views/protocols.js',
   'js/views/settings.js',
+  'js/views/guide.js',
   'vendor/chart.umd.min.js',
   'media/hero.jpg',
   'icons/favicon.png',

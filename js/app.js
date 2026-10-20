@@ -5,6 +5,7 @@ import * as Session from './views/session.js';
 import * as Log from './views/log.js';
 import * as Upkeep from './views/upkeep.js';
 import * as Safety from './views/safety.js';
+import * as Guide from './views/guide.js';
 import * as Protocols from './views/protocols.js';
 import * as Settings from './views/settings.js';
 
@@ -31,6 +32,7 @@ const ROUTES = {
     },
   },
   upkeep: { title: () => 'Maintenance', view: Upkeep.render },
+  guide: { title: () => 'Guide', view: Guide.render },
   safety: { title: () => 'Safety', view: Safety.render },
   protocols: {
     title: (p) => (p[0] ? 'Protocol' : 'Protocols'),

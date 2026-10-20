@@ -5,6 +5,7 @@ A phone app for running and maintaining the household HPO Tech hyperbaric chambe
 - **Session**: a step-by-step checklist (power-up → tablet setup → entering → during → ending → power-down). The live "during" screen has a session timer, a pause timer (warns at 8 min, alarms at 10) and an ear-trouble helper that counts attempts. There's also a UVC timer and a screen wake lock. Finishing opens a pre-filled log entry.
 - **Log**: session history per person, charts, monthly totals and CSV export. **Import tablet CSV** attaches the tablet's per-session files to matching entries and shows a pressure chart, temperature, humidity and chamber O₂.
 - **Upkeep**: maintenance due by session count and/or days, including the tablet backup countdown (the tablet keeps only 25 sessions), history and a 24 h Lysol lock.
+- **Guide**: the full household Operation & Maintenance Guide (startup, sessions, protocols, shutdown, maintenance, safety, video index) to read at leisure, offline.
 - **Safety**: emergency cards, Call installer, contacts (including the manufacturer's email), units, the never-do list and training videos with timestamps.
 - **Protocols**: your own protocols, up to 20 steps, with validation (ends at 0 kPa, air-break warnings) and the tablet save steps.
 - **Settings**: names, contacts, intervals, masks, cloth colours, annual service date, chiller setpoint, and backup/restore.
@@ -64,6 +65,7 @@ js/maint.js                                maintenance due/overdue rules
 js/views/*.js                              one file per screen
 media/, icons/                             hero photo, app icons
 js/tablet.js                               tablet CSV parser and matching
+js/guide.js                                the Operation & Maintenance Guide text (keep in sync with the PDF)
 ```
 
 If you add a new file, also add it to `ASSETS` in `sw.js` so it is available offline.
