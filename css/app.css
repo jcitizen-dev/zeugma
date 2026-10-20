@@ -137,8 +137,8 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; display: flex; flex-dire
 .btn.disabled, .btn:disabled { opacity: 0.4; pointer-events: none; box-shadow: none; }
 
 /* Home hero */
-.hero { position: relative; border-radius: 24px; overflow: hidden; aspect-ratio: 16 / 9; background: #1b1830; border: 1px solid var(--border); }
-.hero-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(0.9) hue-rotate(25deg) brightness(0.8); }
+.hero { position: relative; border-radius: 24px; overflow: hidden; aspect-ratio: 3 / 2; background: #1b1830; border: 1px solid var(--border); }
+.hero-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 45% 50%; filter: brightness(0.78) contrast(1.05); }
 .hero-overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 16px 18px;
   background: linear-gradient(180deg, rgba(12, 10, 24, 0) 35%, rgba(12, 10, 24, 0.85));
@@ -186,7 +186,7 @@ details.more summary { cursor: pointer; color: var(--accent); font-weight: 650; 
 
 /* Session flow */
 .session-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.stepper { list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 0; padding: 0; }
+.stepper { list-style: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 0; padding: 0; }
 .stepper li { font-size: 12px; text-align: center; color: var(--muted); padding-top: 8px; border-top: 4px solid var(--border); font-weight: 650; border-radius: 2px; }
 .stepper li.done { border-color: var(--accent); color: var(--text); }
 .stepper li.current { border-color: var(--cream); color: var(--cream); box-shadow: 0 -6px 14px -6px var(--glow); }
@@ -220,6 +220,16 @@ details.more summary { cursor: pointer; color: var(--accent); font-weight: 650; 
 .timer-row { display: flex; align-items: center; gap: 12px; padding: 2px 0 4px 66px; }
 .timer-row .expired { color: var(--ok); }
 .clock-card { text-align: center; padding: 6px 0; }
+.pause-card, .ear-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.btn-pause { background: #2a2350; border-color: rgba(167, 139, 250, 0.5); color: var(--cream); }
+.pause-card.paused { border-color: var(--accent); box-shadow: 0 0 36px -12px var(--glow); }
+.pause-card .huge.warn { color: var(--warn); text-shadow: 0 0 24px rgba(251, 191, 36, 0.4); }
+.pause-card .huge.alarm { color: var(--danger); text-shadow: 0 0 24px rgba(251, 113, 133, 0.5); animation: blink 1s steps(2) infinite; }
+.pause-msg { font-size: 15px; text-align: center; color: var(--muted); }
+.pause-card:has(.warn) .pause-msg { color: var(--warn); font-weight: 650; }
+.pause-card:has(.alarm) { border-color: var(--danger); background: var(--danger-bg); }
+.pause-card:has(.alarm) .pause-msg { color: #fecdd3; font-weight: 750; font-size: 17px; }
+@keyframes blink { 50% { opacity: 0.55; } }
 .ref-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .ref-list li { padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border-left: 4px solid var(--ice); }
 .ref-list li strong { display: block; font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ice); }
@@ -265,6 +275,11 @@ th, td { text-align: left; padding: 9px 4px; border-bottom: 1px solid var(--bord
 th { color: var(--muted); font-weight: 600; font-size: 14px; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .entry { display: flex; flex-direction: column; gap: 4px; }
+.danger-text { color: var(--danger); }
+.import-row { padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border-left: 4px solid var(--border); }
+.import-ok { border-left-color: var(--ok); }
+.import-new { border-left-color: var(--info); }
+.import-err { border-left-color: var(--danger); color: #fecdd3; }
 .entry-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
 /* Safety */

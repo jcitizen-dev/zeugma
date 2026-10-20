@@ -3,6 +3,7 @@ import { VERSION, primaryContact } from '../state.js';
 import { buildBackup, restoreBackup, resetAll, sessionsToCsv } from '../data.js';
 import { esc, uid, cToF, fmtTemp, fmtDate, fmtDateTime, todayISO, toast, confirmBox, shareOrDownload, callButton } from '../ui.js';
 import { computeStatuses } from '../maint.js';
+import { TABLET_SLOTS } from '../content.js';
 
 const INTERVALS = [
   ['compressorDrain', 'Drain air compressor'],
@@ -45,7 +46,8 @@ export async function render(root, app) {
             <div class="grid2">
               <label class="field"><span>Company</span><input data-set="contacts.${i}.org"></label>
               <label class="field"><span>Role</span><input data-set="contacts.${i}.role"></label>
-            </div></div>`,
+            </div>
+            <label class="field"><span>Email</span><input type="email" inputmode="email" data-set="contacts.${i}.email" placeholder="Optional"></label></div>`,
         )
         .join('')}
       <button type="button" class="btn" data-act="add-contact">+ Add contact</button>
@@ -58,6 +60,9 @@ export async function render(root, app) {
           <label class="inline-num"><input type="number" inputmode="numeric" min="0" data-set="intervals.${key}.sessions"> sessions</label>
           <label class="inline-num"><input type="number" inputmode="numeric" min="0" data-set="intervals.${key}.days"> days</label></div></div>`,
       ).join('')}
+      <div class="field"><span>Back up tablet session data (the tablet keeps ${TABLET_SLOTS})</span><div class="grid2">
+        <label class="inline-num">remind at <input type="number" inputmode="numeric" min="1" max="${TABLET_SLOTS}" data-set="intervals.tabletBackup.remind"></label>
+        <label class="inline-num">urgent at <input type="number" inputmode="numeric" min="1" max="${TABLET_SLOTS}" data-set="intervals.tabletBackup.urgent"></label></div></div>
       <label class="field"><span>UVC clean cycle</span>
         <select data-set="uvcEvery" data-type="num"><option value="1">After every session</option><option value="2">Every other session</option></select></label>
     </section>

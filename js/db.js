@@ -1,8 +1,8 @@
 // IndexedDB wrapper. Record stores are keyed by `id`; `kv` holds loose app state
-// (settings, the in-progress session, the Lysol lock).
+// (settings, the in-progress session, the Lysol lock). `runs` holds imported tablet CSV data.
 const DB_NAME = 'zeugma';
-const DB_VERSION = 1;
-export const RECORD_STORES = ['sessions', 'maint', 'protocols', 'videos'];
+const DB_VERSION = 2;
+export const RECORD_STORES = ['sessions', 'maint', 'protocols', 'videos', 'runs'];
 
 let dbPromise;
 function open() {

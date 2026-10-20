@@ -3,6 +3,9 @@ import { db, getKV, setKV, RECORD_STORES } from './db.js';
 import { userName } from './state.js';
 import { localDate, localTime } from './ui.js';
 
+// Entries from before attempts were counted only stored yes/no.
+export const earAttempts = (x) => x.earAttempts ?? (x.earTrouble ? 1 : 0);
+
 const CSV_COLUMNS = [
   ['date', (x) => localDate(x.at)],
   ['time', (x) => localTime(x.at)],
@@ -13,8 +16,10 @@ const CSV_COLUMNS = [
   ['actual_min', (x) => x.actualMin],
   ['outcome', (x) => (x.outcome === 'stopped' ? 'stopped early' : 'completed')],
   ['stop_reason', (x) => x.stopReason],
-  ['ear_trouble', (x) => (x.earTrouble ? 'yes' : 'no')],
+  ['ear_attempts', (x) => earAttempts(x)],
   ['ear_notes', (x) => x.earNotes],
+  ['pause_count', (x) => x.pauseCount],
+  ['longest_pause_min', (x) => x.longestPauseMin],
   ['feeling_1_to_5', (x) => x.feeling],
   ['uvc_run', (x) => (x.uvcRun ? 'yes' : 'no')],
   ['notes', (x) => x.notes],
@@ -31,10 +36,11 @@ export function sessionsToCsv(sessions, s) {
 }
 
 export async function buildBackup(settings) {
-  const [sessions, maint, protocols, videos, active, lock] = await Promise.all([
+  const [sessions, maint, protocols, runs, videos, active, lock] = await Promise.all([
     db.all('sessions'),
     db.all('maint'),
     db.all('protocols'),
+    db.all('runs'),
     db.all('videos'),
     getKV('active'),
     getKV('lock'),
@@ -47,6 +53,7 @@ export async function buildBackup(settings) {
     sessions,
     maint,
     protocols,
+    runs,
     videos: videos.map(({ blob, ...v }) => ({ ...v, hadFile: !!blob })),
     active: active ?? null,
     lock: lock ?? null,
@@ -57,7 +64,7 @@ export async function restoreBackup(data) {
   if (data?.app !== 'zeugma') throw new Error('This is not a Zeugma backup file.');
   const oldVideos = await db.all('videos');
   for (const store of RECORD_STORES) await db.clear(store);
-  for (const store of ['sessions', 'maint', 'protocols']) {
+  for (const store of ['sessions', 'maint', 'protocols', 'runs']) {
     for (const rec of data[store] || []) await db.put(store, rec);
   }
   for (const { hadFile, ...v } of data.videos || []) {

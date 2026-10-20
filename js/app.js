@@ -1,5 +1,5 @@
 import { loadSettings, saveSettings } from './state.js';
-import { fmtClock, showContacts, toast } from './ui.js';
+import { beep, fmtClock, showContacts, toast } from './ui.js';
 import * as Home from './views/home.js';
 import * as Session from './views/session.js';
 import * as Log from './views/log.js';
@@ -83,15 +83,35 @@ function tick() {
     if (el.dataset.fired) return;
     el.dataset.fired = '1';
     if (el.dataset.alert && left > -5000) {
-      navigator.vibrate?.([300, 150, 300]);
+      beep(2);
       toast(el.dataset.alert);
     }
     if (el.dataset.rerender) app.rerender();
   });
   document.querySelectorAll('[data-since]').forEach((el) => {
-    el.textContent = fmtClock(now - Number(el.dataset.since));
+    const since = Number(el.dataset.since);
+    const elapsed = now - since;
+    el.textContent = fmtClock(elapsed);
+    if (!el.dataset.alarmAt) return;
+    // Thresholds (used by the pause timer). Remembered per start time so a re-render doesn't re-warn.
+    const warn = elapsed >= Number(el.dataset.warnAt);
+    const alarm = elapsed >= Number(el.dataset.alarmAt);
+    el.classList.toggle('warn', warn && !alarm);
+    el.classList.toggle('alarm', alarm);
+    if (warn && !alarm && !warned.has(since)) {
+      warned.add(since);
+      beep(1);
+      toast(el.dataset.warnMsg);
+    }
+    if (alarm && now - (lastAlarm.get(since) || 0) >= 15000) {
+      lastAlarm.set(since, now);
+      beep(3);
+      toast(el.dataset.alarmMsg);
+    }
   });
 }
+const warned = new Set();
+const lastAlarm = new Map();
 
 (async () => {
   await app.reloadSettings();

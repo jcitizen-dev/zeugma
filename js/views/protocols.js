@@ -1,8 +1,10 @@
 import { db } from '../db.js';
-import { esc, uid, sum, fmtMin, icon, toast, confirmBox } from '../ui.js';
+import { esc, uid, sum, fmtMin, fmtKpa, icon, toast, confirmBox } from '../ui.js';
 
 const FIRST_BREAK_BY_MIN = 35;
 const MAX_O2_BLOCK_MIN = 20;
+export const MAX_STEPS = 20;
+const LEVELS = ['easy', 'medium', 'hard'];
 
 const blankStep = (kpa = '') => ({ min: '', kpa, level: '', o2: false });
 
@@ -19,6 +21,7 @@ export function validateProtocol(p) {
   const warnings = [];
   if (!p.name.trim()) errors.push('Give the protocol a name.');
   if (!p.steps.length) errors.push('Add at least one step.');
+  if (p.steps.length > MAX_STEPS) errors.push(`The tablet allows at most ${MAX_STEPS} steps (this has ${p.steps.length}).`);
   p.steps.forEach((x, i) => {
     if (!(Number(x.min) > 0)) errors.push(`Step ${i + 1}: time must be more than 0 min.`);
     if (x.kpa === '' || Number(x.kpa) < 0) errors.push(`Step ${i + 1}: enter a pressure (0 or more kPa).`);
@@ -56,7 +59,10 @@ export function validateProtocol(p) {
   return { errors, warnings };
 }
 
-const TABLET_REMINDER = `<div class="banner banner-info">${icon('info')}<div>After creating or changing a protocol on the tablet, tap <strong>Update protocol</strong> to save it there.</div></div>`;
+const TABLET_REMINDER = `<div class="banner banner-info">${icon('info')}<div class="stack">
+  <div><strong>Saving on the tablet:</strong> tap <strong>Activate Protocol</strong> and <strong>Update Protocol</strong> → Yes.</div>
+  <div><strong>To edit later:</strong> Update Protocols → Yes → make the change → Activate again.</div>
+  <div class="small">An active protocol can't be deleted on the tablet.</div></div></div>`;
 
 export async function renderList(root) {
   const list = (await db.all('protocols')).sort((a, b) => a.name.localeCompare(b.name));
@@ -76,7 +82,7 @@ export async function renderList(root) {
                   : '';
               return `<a class="card entry" href="#/protocols/${p.id}">
                 <div class="entry-top"><span class="strong">${esc(p.name)}</span>${flag}</div>
-                <div class="muted small">${fmtMin(sm.totalMin)} · max ${sm.maxKpa} kPa · O₂ ${fmtMin(sm.o2Min)} · ${p.steps.length} steps</div></a>`;
+                <div class="muted small">${fmtMin(sm.totalMin)} · max ${fmtKpa(sm.maxKpa)} · O₂ ${fmtMin(sm.o2Min)} · ${p.steps.length} steps</div></a>`;
             })
             .join('')
         : '<div class="card muted">No protocols saved yet.</div>'
@@ -95,9 +101,10 @@ export async function renderEditor(root, app, id) {
     <form id="pf" class="stack">
       <label class="field"><span>Protocol name</span><input name="pname" autocomplete="off" value="${esc(p.name)}"></label>
       <div class="card"><h3>Steps</h3>
-        <p class="muted small">Time in minutes, target pressure in kPa, compression level, oxygen on/off.</p>
+        <p class="muted small">Up to ${MAX_STEPS} steps. Time in minutes, target pressure in kPa, compression level, oxygen on/off.</p>
         <div id="steps"></div>
-        <button type="button" class="btn btn-block" data-act="add">+ Add step at end</button></div>
+        <button type="button" class="btn btn-block" data-act="add">+ Add step at end</button>
+        <p class="muted small center" id="stepCount"></p></div>
       <div id="summary"></div>
       <div id="validation" class="stack"></div>
       <label class="field"><span>Notes</span><textarea name="pnotes" rows="3">${esc(p.notes || '')}</textarea></label>
@@ -118,8 +125,11 @@ export async function renderEditor(root, app, id) {
     const sm = protocolSummary(p);
     root.querySelector('#summary').innerHTML = `<div class="stats">
       <div class="stat"><div class="stat-num">${sm.totalMin}</div><div class="stat-label">total min</div></div>
-      <div class="stat"><div class="stat-num">${sm.maxKpa}</div><div class="stat-label">max kPa</div></div>
+      <div class="stat"><div class="stat-num">${sm.maxKpa}</div><div class="stat-label">max kPa · ${Math.round(sm.maxKpa) / 100} bar</div></div>
       <div class="stat"><div class="stat-num">${sm.o2Min}</div><div class="stat-label">O₂ min</div></div></div>`;
+    const full = p.steps.length >= MAX_STEPS;
+    root.querySelector('#stepCount').textContent = `${p.steps.length} of ${MAX_STEPS} steps`;
+    root.querySelectorAll('[data-act="add"], [data-act="ins"]').forEach((b) => (b.disabled = full));
     const v = validateProtocol(p);
     root.querySelector('#validation').innerHTML =
       v.errors.map((x) => `<div class="banner banner-danger">${icon('alert')}<div>${esc(x)}</div></div>`).join('') +
@@ -138,7 +148,9 @@ export async function renderEditor(root, app, id) {
           <div class="grid3">
             <label class="mini"><span>Minutes</span><input type="number" inputmode="decimal" min="0" data-k="min" value="${x.min}"></label>
             <label class="mini"><span>kPa</span><input type="number" inputmode="decimal" min="0" data-k="kpa" value="${x.kpa}"></label>
-            <label class="mini"><span>Level</span><input type="number" inputmode="numeric" min="0" data-k="level" value="${x.level ?? ''}"></label>
+            <label class="mini"><span>Compression</span><select data-k="level"><option value="">—</option>${LEVELS.map(
+              (l) => `<option value="${l}"${x.level === l ? ' selected' : ''}>${l}</option>`,
+            ).join('')}</select></label>
           </div></div>`,
       )
       .join('');
@@ -150,7 +162,8 @@ export async function renderEditor(root, app, id) {
     const row = e.target.closest('.step');
     const k = e.target.dataset.k;
     if (!row || !k) return;
-    p.steps[Number(row.dataset.i)][k] = k === 'o2' ? e.target.checked : e.target.value === '' ? '' : Number(e.target.value);
+    const v = e.target.value;
+    p.steps[Number(row.dataset.i)][k] = k === 'o2' ? e.target.checked : k === 'level' || v === '' ? v : Number(v);
     refresh();
   };
   form.elements.pname.oninput = (e) => {
@@ -162,6 +175,7 @@ export async function renderEditor(root, app, id) {
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const i = Number(b.closest('.step')?.dataset.i);
+    if ((b.dataset.act === 'add' || b.dataset.act === 'ins') && p.steps.length >= MAX_STEPS) return toast(`At most ${MAX_STEPS} steps`);
     if (b.dataset.act === 'add') p.steps.push(blankStep());
     else if (b.dataset.act === 'ins') p.steps.splice(i, 0, blankStep());
     else if (b.dataset.act === 'del') {
@@ -191,7 +205,7 @@ export async function renderEditor(root, app, id) {
     if (v.warnings.length && !(await confirmBox(`Save with ${v.warnings.length} warning(s)?`, { ok: 'Save anyway' }))) return;
     p.updatedAt = Date.now();
     await db.put('protocols', p);
-    toast('Saved. Now tap "Update protocol" on the tablet.');
+    toast('Saved. On the tablet: Activate Protocol and Update Protocol → Yes.');
     location.hash = '#/protocols';
   };
 }

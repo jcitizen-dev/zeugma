@@ -2,7 +2,7 @@ import { db, getKV } from '../db.js';
 import { computeStatuses } from '../maint.js';
 import { PHASES, currentPhaseIndex } from '../content.js';
 import { primaryContact, userName, userById } from '../state.js';
-import { esc, badge, callButton, fmtDate, fmtDateTime, fmtMin, lockBanner, icon, DAY } from '../ui.js';
+import { esc, badge, callButton, fmtDate, fmtDateTime, fmtMin, fmtKpa, lockBanner, icon, DAY } from '../ui.js';
 import { markDone } from './upkeep.js';
 
 const RANK = { overdue: 3, due: 2, unset: 1, ok: 0 };
@@ -11,19 +11,15 @@ export async function render(root, app) {
   const s = app.settings;
   const [sessions, log, active, lock] = await Promise.all([db.all('sessions'), db.all('maint'), getKV('active'), getKV('lock')]);
   const statuses = computeStatuses(s, sessions, log);
-  const due = statuses.filter((t) => t.status !== 'ok').sort((a, b) => RANK[b.status] - RANK[a.status]);
+  // The tablet backup countdown is always shown; everything else only when it needs attention.
+  const due = statuses.filter((t) => t.status !== 'ok' || t.id === 'tabletBackup').sort((a, b) => RANK[b.status] - RANK[a.status]);
   const last = [...sessions].sort((a, b) => b.at - a.at)[0];
   const locked = lock && lock.until > Date.now();
   const needsBackup = sessions.length > 0 && Date.now() - (s.lastBackupAt || 0) > 30 * DAY;
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   root.innerHTML = `
     <section class="hero">
-      ${
-        reduceMotion
-          ? '<img class="hero-media" src="media/hero.jpg" alt="">'
-          : '<video class="hero-media" src="media/hero.mp4" poster="media/hero.jpg" autoplay muted loop playsinline></video>'
-      }
+      <img class="hero-media" src="media/hero.jpg" alt="The HPO Tech chamber, three-quarter view">
       <div class="hero-overlay">
         <div class="hero-kicker">HPO Tech chamber</div>
         <div class="hero-title">Zeugma</div>
@@ -39,7 +35,8 @@ export async function render(root, app) {
     }
     <section class="section">
       <div class="section-head"><h2>Maintenance</h2><a href="#/upkeep" class="link">All tasks →</a></div>
-      ${due.length ? due.map((t) => dueRow(t, s)).join('') : '<div class="card muted">All caught up. Nothing is due.</div>'}
+      ${due.some((t) => t.status !== 'ok') ? '' : '<div class="card muted">All caught up. Nothing is due.</div>'}
+      ${due.map((t) => dueRow(t, s)).join('')}
     </section>
     <section class="section">
       <div class="section-head"><h2>Last session</h2><a href="#/log" class="link">Log →</a></div>
@@ -87,7 +84,7 @@ function lastCard(x, s) {
   return `<a class="card entry" href="#/log/edit/${x.id}">
     <div class="entry-top"><span class="strong">${esc(fmtDateTime(x.at))}</span>
     <span class="chip" style="--c:${u?.color || '#999'}">${esc(u?.name || '—')}</span></div>
-    <div>${esc(x.protocol || 'Unnamed protocol')}${x.maxPressure != null ? ` · ${x.maxPressure} kPa` : ''}</div>
+    <div>${esc(x.protocol || 'Unnamed protocol')}${x.maxPressure != null ? ` · ${fmtKpa(x.maxPressure)}` : ''}</div>
     <div class="muted small">${fmtMin(x.actualMin)}${x.outcome === 'stopped' ? ' · stopped early' : ' · completed'} · feeling ${
       x.feeling ? `${x.feeling}/5` : '—'
     }${x.uvcRun ? ' · UVC run' : ''}</div>

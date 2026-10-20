@@ -13,6 +13,38 @@ export const sum = (xs) => xs.reduce((a, b) => a + (Number(b) || 0), 0);
 
 export const cToF = (c) => Math.round((c * 9) / 5 * 10 + 320) / 10;
 export const fmtTemp = (c) => `${c} °C (${cToF(c)} °F)`;
+export const fmtKpa = (k) => (k == null || k === '' ? '—' : `${k} kPa (${Math.round(Number(k)) / 100} bar)`);
+
+// Audible alerts. iOS only lets a page make sound after a tap, so call primeAudio() from one.
+let audioCtx;
+export function primeAudio() {
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback'; // play even with the silent switch on (iOS 17+)
+    audioCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx.resume();
+  } catch {
+    /* no audio: fine */
+  }
+}
+// Browsers refuse vibration until the page has had a real tap.
+export const vibrate = (pattern) => navigator.userActivation?.hasBeenActive !== false && navigator.vibrate?.(pattern);
+
+export function beep(times = 1) {
+  vibrate(Array.from({ length: times * 2 - 1 }, (_, i) => (i % 2 ? 150 : 300)));
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  for (let i = 0; i < times; i++) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, t0 + i * 0.35);
+    gain.gain.exponentialRampToValueAtTime(0.4, t0 + i * 0.35 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.35 + 0.25);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0 + i * 0.35);
+    osc.stop(t0 + i * 0.35 + 0.3);
+  }
+}
 
 const pad = (n) => String(n).padStart(2, '0');
 export const localDate = (t) => {
@@ -126,8 +158,9 @@ export function segmented(name, options, selected) {
     .join('')}</div>`;
 }
 
+// `selected` undefined → first person; '' → nobody picked yet (e.g. an entry created from a tablet file).
 export const userPicker = (name, s, selected) =>
-  segmented(name, s.users.map((u) => ({ value: u.id, label: u.name })), selected || s.users[0].id);
+  segmented(name, s.users.map((u) => ({ value: u.id, label: u.name })), selected === undefined ? s.users[0].id : selected);
 
 const BADGES = { overdue: ['Overdue', 'danger'], due: ['Due', 'warn'], unset: ['Set up', 'info'], ok: ['OK', 'ok'] };
 export const badge = (status) => {
@@ -152,8 +185,9 @@ export function showContacts(s) {
         (c) => `<div class="contact">
           <div class="grow"><div class="strong">${esc(c.name)}${c.primary ? ' <span class="tag">primary</span>' : ''}</div>
           <div class="muted small">${esc([c.org, c.role].filter(Boolean).join(' · '))}</div>
-          <div class="small mono">${esc(c.phone || 'No number yet')}</div></div>
-          ${callButton(c, { label: 'Call', small: true })}
+          <div class="small mono">${esc([c.phone, c.email].filter(Boolean).join(' · ') || 'No number yet')}</div></div>
+          ${c.phone || !c.email ? callButton(c, { label: 'Call', small: true }) : ''}
+          ${c.email ? `<a class="btn btn-sm" href="mailto:${esc(c.email)}">Email</a>` : ''}
         </div>`,
       )
       .join('')}</div>

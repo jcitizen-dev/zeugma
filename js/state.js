@@ -1,8 +1,20 @@
 import { getKV, setKV } from './db.js';
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
+const SCHEMA = 2;
+
+const MANUFACTURER = {
+  id: 'hpotech',
+  name: 'HPOTECH',
+  org: 'Manufacturer · Istanbul',
+  role: 'Manufacturer',
+  phone: '',
+  email: 'info@hpotech.com',
+  primary: false,
+};
 
 export const DEFAULT_SETTINGS = {
+  schema: SCHEMA,
   installedAt: 0,
   users: [
     { id: 'u1', name: 'Person 1', color: '#a78bfa' },
@@ -12,6 +24,7 @@ export const DEFAULT_SETTINGS = {
     { id: 'nick', name: 'Nick', org: 'HPO Tech', role: 'Installer · primary contact', phone: '(305) 229-0234', primary: true },
     { id: 'jayden', name: 'Jayden', org: 'HPO Tech', role: "Installer · Nick's colleague", phone: '', primary: false },
     { id: 'shawn', name: 'Shawn', org: 'HPO Tech', role: 'Boss · escalation', phone: '(909) 306-3253', primary: false },
+    MANUFACTURER,
   ],
   // 0 = not used. A task is due when either limit is reached.
   intervals: {
@@ -19,6 +32,8 @@ export const DEFAULT_SETTINGS = {
     dryerEmpty: { sessions: 3, days: 0 },
     chillerLevel: { sessions: 1, days: 0 },
     wipeDown: { sessions: 10, days: 7 },
+    // The tablet keeps only its last 25 sessions.
+    tabletBackup: { remind: 20, urgent: 24 },
   },
   uvcEvery: 1,
   masks: [{ userId: 'u1' }, { userId: 'u2' }, { userId: '' }, { userId: '' }, { userId: '' }, { userId: '' }],
@@ -50,10 +65,18 @@ function merge(base, over) {
 export async function loadSettings() {
   const stored = await getKV('settings');
   const s = merge(structuredClone(DEFAULT_SETTINGS), stored || {});
+  let changed = false;
   if (!s.installedAt) {
     s.installedAt = Date.now();
-    await setKV('settings', s);
+    changed = true;
   }
+  // v2: add the manufacturer contact to settings saved before it existed.
+  if (stored && (stored.schema || 1) < 2) {
+    if (!s.contacts.some((c) => c.id === MANUFACTURER.id)) s.contacts.push({ ...MANUFACTURER });
+    s.schema = SCHEMA;
+    changed = true;
+  }
+  if (changed) await setKV('settings', s);
   return s;
 }
 

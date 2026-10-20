@@ -1,5 +1,5 @@
 // Maintenance engine: each task is due after N sessions and/or D days since it was last done.
-import { COMPRESSOR_STEPS, wipeSteps, UVC_MINUTES } from './content.js';
+import { COMPRESSOR_STEPS, TABLET_BACKUP_STEPS, TABLET_SLOTS, wipeSteps, UVC_MINUTES } from './content.js';
 import { userName } from './state.js';
 import { DAY, fmtDate } from './ui.js';
 
@@ -27,6 +27,14 @@ export function taskList(s) {
       steps: ['Check the level is at H.', 'Top up with distilled water if not.'],
       auto: 'Recorded automatically by the pre-session checklist.',
     },
+    {
+      id: 'tabletBackup',
+      name: 'Back up tablet session data',
+      iv: { sessions: iv.tabletBackup.remind, days: 0 },
+      urgentAt: iv.tabletBackup.urgent,
+      steps: TABLET_BACKUP_STEPS,
+      auto: `The tablet keeps only its last ${TABLET_SLOTS} sessions and overwrites the oldest. Importing files records the backup.`,
+    },
     { id: 'wipeDown', name: 'Wipe down chamber', iv: iv.wipeDown, steps: wipeSteps(s), lysol: true },
   ];
   s.masks.forEach((m, i) => {
@@ -53,7 +61,12 @@ export function computeStatuses(s, sessions, log, now = Date.now()) {
     const D = Number(t.iv?.days) || 0;
     let status = 'ok';
     if ((S && n >= S) || (D && days >= D)) status = 'due';
-    if ((S && n > S) || (D && days > D)) status = 'overdue';
+    if (t.urgentAt ? n >= t.urgentAt : (S && n > S) || (D && days > D)) status = 'overdue';
+    if (t.id === 'tabletBackup') {
+      const left = TABLET_SLOTS - n;
+      const progress = left > 0 ? `${n} of ${TABLET_SLOTS} tablet slots used · ${left} left before the oldest is overwritten` : `${n} sessions: the tablet is already overwriting old ones`;
+      return { ...t, history, last, status, progress };
+    }
     const parts = [];
     if (S) parts.push(`${n} of ${S} session${S === 1 ? '' : 's'}`);
     if (D) parts.push(`${days} of ${D} days`);

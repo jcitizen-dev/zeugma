@@ -1,7 +1,12 @@
 import { db, getKV, setKV, delKV } from '../db.js';
-import { PHASES, DURING_REFERENCE, UVC_MINUTES, currentPhaseIndex, detailText, isOptional } from '../content.js';
+import {
+  PHASES, DURING_REMINDERS, EAR_STEPS, EAR_MAX_ATTEMPTS, PAUSE_WARN_MIN, PAUSE_MAX_MIN, UVC_MINUTES,
+  currentPhaseIndex, detailText, isOptional,
+} from '../content.js';
 import { primaryContact, userName } from '../state.js';
-import { esc, icon, uid, num, userPicker, confirmBox, lockBanner, fmtMin, fmtClock, refList, callButton } from '../ui.js';
+import {
+  esc, icon, uid, num, userPicker, confirmBox, lockBanner, fmtMin, fmtClock, fmtKpa, refList, callButton, primeAudio, vibrate,
+} from '../ui.js';
 import { protocolSummary } from './protocols.js';
 
 let wakeLock = null;
@@ -14,6 +19,19 @@ async function keepAwake() {
 }
 function onVisible() {
   if (document.visibilityState === 'visible' && (!wakeLock || wakeLock.released)) keepAwake();
+}
+
+// Pause stats for the log: completed pauses plus one still running.
+export function pauseStats(a, now = Date.now()) {
+  const spans = (a.pauses || []).map((p) => p.end - p.start);
+  if (a.pauseStart) spans.push(now - a.pauseStart);
+  return { count: spans.length, longestMs: spans.length ? Math.max(...spans) : 0 };
+}
+
+function endPause(a) {
+  if (!a.pauseStart) return;
+  (a.pauses ||= []).push({ start: a.pauseStart, end: Date.now() });
+  a.pauseStart = null;
 }
 
 export async function render(root, app) {
@@ -71,6 +89,7 @@ async function renderSetup(root, app, lock) {
   fill();
   form.onsubmit = async (e) => {
     e.preventDefault();
+    primeAudio();
     const p = protocols.find((x) => x.id === f.protocol.value);
     await setKV('active', {
       id: uid(),
@@ -82,6 +101,9 @@ async function renderSetup(root, app, lock) {
       maxPressure: num(f.maxPressure.value),
       checks: {},
       during: false,
+      pauses: [],
+      pauseStart: null,
+      earAttempts: 0,
     });
     app.rerender();
   };
@@ -97,7 +119,8 @@ function renderActive(root, app, a) {
     : '<span class="muted small">Timer starts at Play</span>';
   root.innerHTML = `
     <div class="card session-head">
-      <div><div class="muted small">${esc(userName(s, a.userId))}</div><div class="strong">${esc(a.protocolName || 'Session')}</div></div>
+      <div><div class="muted small">${esc(userName(s, a.userId))}</div><div class="strong">${esc(a.protocolName || 'Session')}</div>
+        ${a.maxPressure ? `<div class="muted small">${fmtKpa(a.maxPressure)}</div>` : ''}</div>
       <div class="right">${elapsed}${a.plannedMin ? `<div class="muted small">planned ${fmtMin(a.plannedMin)}</div>` : ''}</div>
     </div>
     <ol class="stepper">${PHASES.map((p, i) => `<li class="${i < cur ? 'done' : i === cur ? 'current' : ''}">${esc(p.short)}</li>`).join('')}</ol>
@@ -110,14 +133,27 @@ function renderActive(root, app, a) {
     if (!el) return;
     const act = el.dataset.act;
     const before = currentPhaseIndex(a, s);
+    primeAudio();
     if (act === 'toggle') {
       const id = el.dataset.id;
       const on = !a.checks[id];
       a.checks[id] = on;
       if (id === 'close' && on && !a.playAt) a.playAt = Date.now();
-      if (id === 'stop') a.endAt = on ? a.endAt || Date.now() : null;
-      navigator.vibrate?.(12);
+      if (id === 'stop') {
+        a.endAt = on ? a.endAt || Date.now() : null;
+        if (on) endPause(a);
+      }
+      vibrate(12);
+    } else if (act === 'pause') {
+      a.pauseStart = Date.now();
+    } else if (act === 'resume') {
+      endPause(a);
+    } else if (act === 'ear-add') {
+      a.earAttempts = (a.earAttempts || 0) + 1;
+    } else if (act === 'ear-undo') {
+      a.earAttempts = Math.max(0, (a.earAttempts || 0) - 1);
     } else if (act === 'during-done') {
+      endPause(a);
       a.during = true;
     } else if (act === 'uvc-start') {
       a.uvcEndsAt = Date.now() + UVC_MINUTES * 60000;
@@ -164,7 +200,7 @@ function itemsBody(p, a, s) {
   return `<div class="checklist">${p.items
     .map((it, idx) => {
       const on = !!a.checks[it.id];
-      const detail = detailText(it, s);
+      const detail = detailText(it, s, a);
       return `<button type="button" class="check${on ? ' on' : ''}${it.danger ? ' danger' : ''}" data-act="toggle" data-id="${it.id}" aria-pressed="${on}">
         <span class="box">${on ? icon('check') : idx + 1}</span>
         <span class="check-text"><span class="check-title">${esc(it.text)}${isOptional(it, s) ? ' <span class="tag">optional</span>' : ''}</span>
@@ -185,13 +221,50 @@ function uvcTimer(a) {
     <button type="button" class="btn btn-sm btn-ghost" data-act="uvc-reset">Reset</button></div>`;
 }
 
+function pauseCard(a, live) {
+  const { count, longestMs } = pauseStats(a);
+  const summary = count ? `${count} pause${count === 1 ? '' : 's'} · longest ${fmtClock(longestMs)}` : 'No pauses yet';
+  if (!live) return `<div class="pause-card"><div class="muted small">${summary}</div></div>`;
+  if (!a.pauseStart) {
+    return `<div class="pause-card">
+      <button class="btn btn-hero btn-pause" data-act="pause">⏸ I paused the chamber</button>
+      <div class="muted small center">${summary}. Tap when you press Pause on the tablet.</div></div>`;
+  }
+  return `<div class="pause-card paused">
+    <div class="muted small center">Paused for</div>
+    <div class="mono huge center" data-since="${a.pauseStart}" data-warn-at="${PAUSE_WARN_MIN * 60000}" data-alarm-at="${PAUSE_MAX_MIN * 60000}"
+      data-warn-msg="Paused ${PAUSE_WARN_MIN} min. Resume or end the session soon."
+      data-alarm-msg="Paused ${PAUSE_MAX_MIN} min. End the session now.">${fmtClock(Date.now() - a.pauseStart)}</div>
+    <div class="pause-msg">Never stay paused more than ${PAUSE_MAX_MIN} minutes under pressure. End the session instead.</div>
+    <button class="btn btn-hero btn-primary" data-act="resume">${icon('play')} Resumed</button></div>`;
+}
+
+function earCard(a, live) {
+  const n = a.earAttempts || 0;
+  return `<div class="ear-card stack">
+    <div class="task-head"><h3>Ear trouble</h3><span class="mono big">${n}<span class="muted small"> / ${EAR_MAX_ATTEMPTS}</span></span></div>
+    <ol class="steps">${EAR_STEPS.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+    ${
+      n >= EAR_MAX_ATTEMPTS
+        ? `<div class="banner banner-danger">${icon('alert')}<div><strong>End the session.</strong><div class="small">${n} attempts without clearing. Press Stop → Yes.</div></div></div>`
+        : n
+          ? `<p class="muted small">${EAR_MAX_ATTEMPTS - n} more attempt${EAR_MAX_ATTEMPTS - n === 1 ? '' : 's'}, then end the session.</p>`
+          : ''
+    }
+    ${live ? `<div class="row"><button class="btn" data-act="ear-add">+ Count an attempt</button>${n ? '<button class="btn btn-ghost btn-sm" data-act="ear-undo">Undo</button>' : ''}</div>` : ''}
+  </div>`;
+}
+
 function duringBody(a, s, isCurrent) {
   const clock = a.playAt
     ? `<div class="clock-card"><div class="mono huge"${a.endAt ? '' : ` data-since="${a.playAt}"`}>${fmtClock(
         (a.endAt || Date.now()) - a.playAt,
-      )}</div><div class="muted small">elapsed${a.plannedMin ? ` · planned ${fmtMin(a.plannedMin)}` : ''}</div></div>`
+      )}</div><div class="muted small">session time${a.plannedMin ? ` · planned ${fmtMin(a.plannedMin)}` : ''}</div></div>`
     : '';
-  return `<div class="stack">${clock}${refList(DURING_REFERENCE)}
-    ${callButton(primaryContact(s), { label: `Call installer (${primaryContact(s).name})` })}
+  return `<div class="stack">${clock}
+    ${pauseCard(a, isCurrent)}
+    ${earCard(a, isCurrent)}
+    ${refList(DURING_REMINDERS)}
+    ${callButton(primaryContact(s), { label: `Call ${primaryContact(s).name}` })}
     ${isCurrent ? '<button class="btn btn-primary btn-block" data-act="during-done">Session is ending → Ending steps</button>' : ''}</div>`;
 }

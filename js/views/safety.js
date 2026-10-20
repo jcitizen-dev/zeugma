@@ -1,5 +1,5 @@
 import { db } from '../db.js';
-import { EMERGENCIES, END_WAYS, DURING_REFERENCE, neverList } from '../content.js';
+import { EMERGENCIES, END_WAYS, DURING_REFERENCE, UNITS, neverList } from '../content.js';
 import { primaryContact } from '../state.js';
 import { esc, uid, callButton, refList, modal, confirmBox, toast } from '../ui.js';
 
@@ -27,6 +27,9 @@ export async function render(root, app) {
 
     <h2 class="section-title">During a session</h2>
     <div class="card">${refList(DURING_REFERENCE)}</div>
+
+    <h2 class="section-title">Units & readings</h2>
+    <div class="card">${refList(UNITS)}</div>
 
     <h2 class="section-title">Never</h2>
     <ul class="card never">${neverList(s).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
